@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F4EAD5">
+<title>내적 감각 — 각도 추측과 최대 내적</title>
+<style>
+  :root{
+    --parchment:#F4EAD5; --surface:#FFFDF7; --ink:#1E3A52; --muted:#6B7E8C;
+    --line:#D9CDB4; --panel:#EEF4F8; --grid:#C4D6E1; --axis:#7BA3BC;
+    --gold:#9C6F1E; --danger:#A32D2D; --success:#0F6E56; --vecA:#185FA5; --vecB:#993C1D;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--parchment);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;
+    font-size:16px;line-height:1.5;
+    padding:max(12px,env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust:100%;touch-action:manipulation;
+  }
+  .wrap{max-width:620px;margin:0 auto}
+  header{display:flex;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  h1{font-size:20px;margin:0;font-weight:600}
+  header .sub{font-size:12.5px;color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .hud{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:8px}
+  .hud b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .lives{color:var(--danger);letter-spacing:2px;font-size:14px}
+  .modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-size:13px;font-weight:500;color:var(--ink);background:var(--surface);
+    border:1px solid var(--line);border-radius:999px;padding:9px 14px;min-height:40px;cursor:pointer}
+  button:active{background:#EFE4CB}
+  button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#FFF8E8}
+  .big-btn{min-height:48px;font-size:15px;padding:12px 22px;background:var(--ink);color:#FFF8E8;border-color:var(--ink);width:100%}
+  .timer-track{height:8px;background:#E6DAC0;border-radius:4px;overflow:hidden;margin:6px 0 10px}
+  .timer-fill{height:100%;width:100%;background:var(--gold);border-radius:4px}
+  #qtext{font-size:15px;margin:0 0 8px;min-height:44px;font-weight:500}
+  .clue{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+  .clue div{background:var(--panel);border-radius:10px;padding:8px 14px;font-size:12.5px;color:var(--muted);flex:1;min-width:88px;text-align:center}
+  .clue b{display:block;font-size:20px;color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  svg#board{display:block;width:100%;height:auto;touch-action:none}
+  .anglebox{display:none;margin-top:10px}
+  .sliderrow{display:flex;align-items:center;gap:10px}
+  input[type=range]{flex:1;height:44px;accent-color:var(--gold);background:transparent}
+  #sliderout{font-size:22px;font-weight:600;min-width:64px;text-align:right;font-variant-numeric:tabular-nums}
+  #feedback{font-size:14.5px;font-weight:500;margin:10px 0 0;min-height:22px}
+  #work{font-size:13px;color:var(--muted);margin:6px 0 0;min-height:18px}
+  #gameover{display:none;margin-top:12px;text-align:center;background:#FFF8E8;border:1px solid var(--line);border-radius:14px;padding:16px}
+  #rank{font-size:21px;font-weight:600;color:var(--gold);margin:0 0 6px}
+  #gostats{font-size:13.5px;color:var(--muted);margin:0 0 12px}
+  details{margin-top:12px;font-size:13.5px;color:var(--muted)}
+  summary{cursor:pointer;font-weight:500;color:var(--ink);padding:6px 0;min-height:32px}
+  footer{margin-top:14px;font-size:12px;color:var(--muted);text-align:center}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  @keyframes ringOut{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(2.4)}}
+  @keyframes shk{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @media (prefers-reduced-motion:no-preference){
+    .rg{animation:ringOut .55s ease-out forwards}
+    .shk{animation:shk .32s ease-in-out}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>내적 감각</h1>
+    <span class="sub">각도 추측 · 최대 내적 찾기</span>
+  </header>
+
+  <div class="card">
+    <div class="hud">
+      <span>기회 <span class="lives" id="lives">●●●</span></span>
+      <span>단계 <b id="lvl">1</b></span>
+      <span>점수 <b id="pts">0</b></span>
+      <span>연속 <b id="str">0</b> <span id="mul" style="color:var(--gold);font-weight:600"></span></span>
+      <span>최고 <b id="bestpts">0</b></span>
+    </div>
+
+    <div class="modes" id="modes"></div>
+    <div class="timer-track"><div class="timer-fill" id="timerfill"></div></div>
+    <p id="qtext"></p>
+    <div class="clue" id="clue"></div>
+
+    <svg id="board" viewBox="0 0 560 560" role="img" aria-labelledby="bt bd">
+      <title id="bt">내적 게임 판</title>
+      <desc id="bd">원점을 중심으로 한 좌표평면. 파란 화살표 a가 그려지고, 각도 추측에서는 회색 점선이 추측한 b의 방향을 나타낸다. 최대·최소 모드에서는 번호가 붙은 후보 점이 표시된다.</desc>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <circle cx="280" cy="280" r="256" fill="var(--panel)" stroke="var(--line)"/>
+      <g id="grid"></g>
+      <g id="extra"></g>
+      <path id="arc" fill="none" stroke="var(--muted)" stroke-width="2.5" opacity="0"/>
+      <line id="guess" x1="280" y1="280" x2="280" y2="280" stroke="var(--muted)" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#ar)" opacity="0"/>
+      <line id="vecA" x1="280" y1="280" x2="280" y2="280" stroke="var(--vecA)" stroke-width="4" marker-end="url(#ar)"/>
+      <line id="vecB" x1="280" y1="280" x2="280" y2="280" stroke="var(--vecB)" stroke-width="4" marker-end="url(#ar)" opacity="0"/>
+      <line id="vecB2" x1="280" y1="280" x2="280" y2="280" stroke="var(--vecB)" stroke-width="2.4" stroke-dasharray="6 5" marker-end="url(#ar)" opacity="0"/>
+      <g id="blips"></g>
+      <g id="fx"></g>
+      <g id="labels"></g>
+      <circle id="dragzone" cx="280" cy="280" r="256" fill="transparent"/>
+    </svg>
+
+    <div class="anglebox" id="anglebox">
+      <div class="sliderrow">
+        <label for="slider" style="font-size:13px;color:var(--muted)">각 θ</label>
+        <input type="range" id="slider" min="0" max="180" step="1" value="90" aria-label="추측하는 각도">
+        <span id="sliderout">90°</span>
+      </div>
+      <button type="button" id="guessbtn" class="big-btn" style="margin-top:8px">이 각으로 확정</button>
+    </div>
+
+    <p id="feedback" aria-live="polite"></p>
+    <p id="work"></p>
+    <button type="button" id="nextbtn" class="big-btn" style="display:none;margin-top:10px">다음 문제 ↗</button>
+
+    <div id="gameover">
+      <p style="font-size:16px;margin:0 0 4px;font-weight:600">게임 종료</p>
+      <p id="rank"></p>
+      <p id="gostats"></p>
+      <button type="button" id="restartbtn" class="big-btn">다시 시작 ↗</button>
+    </div>
+  </div>
+
+  <details>
+    <summary>규칙 보기</summary>
+    <p>· <b>각도 추측</b>: b는 화면에 없습니다. a·b와 두 벡터의 크기만 보고 두 벡터가 이루는 각을 맞히세요. 슬라이더를 움직이거나 <b>화면을 직접 손가락으로 끌어</b> 방향을 정할 수 있습니다.</p>
+    <p>· 오차 허용 범위는 단계가 오를수록 15°에서 8°까지 좁아집니다. 4° 이내면 정밀 보너스가 붙습니다.</p>
+    <p>· <b>최대·최소 내적</b>: 후보 점 중 a와의 내적이 가장 큰(작은) 점을 고르세요. 답을 확인하면 각 점을 a 위로 내린 정사영이 함께 표시됩니다.</p>
+    <p>· 기회는 3번. 틀리거나 시간이 다하면 하나 줄어듭니다.</p>
+  </details>
+
+  <footer>수학 · 벡터의 내적 · 인터넷 연결 없이도 실행됩니다</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var NS='http://www.w3.org/2000/svg', G=4, S=56, ox=280, oy=280;
+  var board=document.getElementById('board'), grid=document.getElementById('grid'),
+      extra=document.getElementById('extra'), blips=document.getElementById('blips'),
+      labels=document.getElementById('labels');
+  function px(x,y){ return [ox+x*S, oy-y*S]; }
+
+  for(var i=-G;i<=G;i++){
+    ['v','h'].forEach(function(k){
+      var l=document.createElementNS(NS,'line');
+      if(k==='v'){ l.setAttribute('x1',ox+i*S); l.setAttribute('y1',oy-G*S); l.setAttribute('x2',ox+i*S); l.setAttribute('y2',oy+G*S); }
+      else { l.setAttribute('x1',ox-G*S); l.setAttribute('y1',oy-i*S); l.setAttribute('x2',ox+G*S); l.setAttribute('y2',oy-i*S); }
+      l.setAttribute('stroke', i===0?'var(--axis)':'var(--grid)');
+      l.setAttribute('stroke-width', i===0?'1.4':'0.7');
+      grid.appendChild(l);
+    });
+  }
+
+  var MODES=[{id:'mix',label:'혼합'},{id:'angle',label:'각도 추측'},{id:'max',label:'최대 내적'},{id:'min',label:'최소 내적'}];
+  var mr=document.getElementById('modes');
+  MODES.forEach(function(m){
+    var b=document.createElement('button');
+    b.type='button'; b.textContent=m.label; b.dataset.m=m.id;
+    b.addEventListener('click',function(){ setMode(m.id); });
+    mr.appendChild(b);
+  });
+
+  var st={mode:'mix',kind:'angle',a:{x:1,y:0},b:{x:1,y:0},cands:[],answered:false,over:false,
+          t0:0,to:null,dur:16000,trueAng:0,aAng:0};
+  var sc={pts:0,ok:0,streak:0,best:0,lives:3}, bestPts=0;
+
+  function ri(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+  function rv(lo,hi){ var x,y; do{x=ri(lo,hi);y=ri(lo,hi);}while(x===0&&y===0); return {x:x,y:y}; }
+  function dot(u,v){ return u.x*v.x+u.y*v.y; }
+  function mag(u){ return Math.sqrt(u.x*u.x+u.y*u.y); }
+  function angOf(u){ return Math.atan2(u.y,u.x)*180/Math.PI; }
+  function lvl(){ return Math.min(Math.floor(sc.ok/4)+1,4); }
+  function mul(){ return sc.streak>=8?3:(sc.streak>=5?2:(sc.streak>=3?1.5:1)); }
+  function tol(){ return [15,12,10,8][lvl()-1]; }
+
+  function setLine(id,vx,vy,lenPx){
+    var e=document.getElementById(id), p;
+    if(lenPx){ var m=Math.sqrt(vx*vx+vy*vy); p=[ox+vx/m*lenPx, oy-vy/m*lenPx]; }
+    else p=px(vx,vy);
+    e.setAttribute('x1',ox); e.setAttribute('y1',oy);
+    e.setAttribute('x2',p[0]); e.setAttribute('y2',p[1]);
+    e.setAttribute('opacity','1');
+  }
+  function labelAt(x,y,txt,col){
+    var p=px(x,y), t=document.createElementNS(NS,'text');
+    t.setAttribute('x',p[0]+11); t.setAttribute('y',p[1]-11);
+    t.setAttribute('font-size','19'); t.setAttribute('font-weight','600');
+    t.setAttribute('fill',col); t.textContent=txt; labels.appendChild(t);
+  }
+  function hud(){
+    document.getElementById('lvl').textContent=lvl();
+    document.getElementById('pts').textContent=sc.pts;
+    document.getElementById('str').textContent=sc.streak;
+    document.getElementById('bestpts').textContent=bestPts;
+    document.getElementById('mul').textContent=mul()>1?'×'+mul():'';
+    var h=''; for(var i=0;i<3;i++) h+= i<sc.lives?'●':'○';
+    document.getElementById('lives').textContent=h;
+  }
+  function ringAt(x,y,col){
+    var p=px(x,y), c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',p[0]); c.setAttribute('cy',p[1]); c.setAttribute('r','18');
+    c.setAttribute('fill','none'); c.setAttribute('stroke',col); c.setAttribute('stroke-width','2.4');
+    c.setAttribute('class','rg'); c.style.transformBox='fill-box'; c.style.transformOrigin='center';
+    document.getElementById('fx').appendChild(c);
+    setTimeout(function(){ if(c.parentNode) c.parentNode.removeChild(c); },560);
+  }
+  function timer(ms){
+    st.dur=ms;
+    var f=document.getElementById('timerfill');
+    f.style.transition='none'; f.style.width='100%'; f.style.background='var(--gold)';
+    void f.offsetWidth; st.t0=Date.now();
+    requestAnimationFrame(function(){ f.style.transition='width '+ms+'ms linear, background-color .4s linear'; f.style.width='0%'; });
+    if(st.to) clearTimeout(st.to);
+    st.to=setTimeout(function(){ if(!st.answered&&!st.over){ reveal(); score(false,null,true,999); } },ms);
+  }
+  function stopT(){
+    var f=document.getElementById('timerfill'), el=Date.now()-st.t0;
+    f.style.transition='none'; f.style.width=Math.max(0,100-100*el/st.dur)+'%';
+    if(st.to){ clearTimeout(st.to); st.to=null; }
+    return Math.max(0,1-el/st.dur);
+  }
+  function setMode(m){
+    st.mode=m;
+    Array.prototype.forEach.call(mr.children,function(b){ b.setAttribute('aria-pressed', String(b.dataset.m===m)); });
+    reset(); next();
+  }
+  function pick(){
+    if(st.mode!=='mix') return st.mode;
+    var pool=['angle','max','angle'];
+    if(lvl()>=2) pool.push('min');
+    return pool[ri(0,pool.length-1)];
+  }
+  function clue(items){
+    var c=document.getElementById('clue'); c.innerHTML='';
+    items.forEach(function(it){
+      var d=document.createElement('div');
+      d.appendChild(document.createTextNode(it[0]));
+      var b=document.createElement('b'); b.textContent=it[1]; d.appendChild(b);
+      c.appendChild(d);
+    });
+  }
+  function next(){
+    document.getElementById('feedback').textContent='';
+    document.getElementById('work').textContent='';
+    document.getElementById('nextbtn').style.display='none';
+    extra.innerHTML=''; blips.innerHTML=''; labels.innerHTML='';
+    ['vecB','vecB2','guess','arc'].forEach(function(id){ document.getElementById(id).setAttribute('opacity','0'); });
+    document.getElementById('anglebox').style.display='none';
+    st.answered=false;
+    var k=pick(); st.kind=k;
+    var q=document.getElementById('qtext');
+
+    if(k==='angle'){
+      var a,b,d,c;
+      do{ a=rv(-4,4); b=rv(-4,4); d=dot(a,b); c=d/(mag(a)*mag(b)); }while(Math.abs(c)>0.995);
+      st.a=a; st.b=b; st.aAng=angOf(a);
+      st.trueAng=Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;
+      setLine('vecA',a.x,a.y); labelAt(a.x,a.y,'a','var(--vecA)');
+      clue([['a · b',String(d)],['|a|',mag(a).toFixed(2)],['|b|',mag(b).toFixed(2)]]);
+      q.textContent='b는 화면에 없습니다. 세 값만 보고 a와 b가 이루는 각을 맞히세요. 오차 '+tol()+'° 이내면 성공.';
+      document.getElementById('anglebox').style.display='block';
+      document.getElementById('slider').value=90;
+      updateGuess();
+      timer(Math.max(13000,21000-(lvl()-1)*2000));
+    } else {
+      var a2=rv(-4,4), n=Math.min(4+Math.floor(sc.ok/6),6), list=[], seen={}, vals={};
+      var guard=0;
+      while(list.length<n && guard++<400){
+        var p=rv(-G,G), key=p.x+','+p.y, dv=dot(a2,p);
+        if(seen[key]||vals[dv]) continue;
+        seen[key]=1; vals[dv]=1; list.push(p);
+      }
+      st.a=a2; st.cands=list;
+      setLine('vecA',a2.x,a2.y); labelAt(a2.x,a2.y,'a','var(--vecA)');
+      list.forEach(function(p,idx){
+        var pp=px(p.x,p.y), g=document.createElementNS(NS,'g'); g.style.cursor='pointer';
+        var ci=document.createElementNS(NS,'circle');
+        ci.setAttribute('cx',pp[0]); ci.setAttribute('cy',pp[1]); ci.setAttribute('r','19');
+        ci.setAttribute('fill','#FAEEDA'); ci.setAttribute('stroke','#854F0B'); ci.setAttribute('stroke-width','1.8');
+        var tx=document.createElementNS(NS,'text');
+        tx.setAttribute('x',pp[0]); tx.setAttribute('y',pp[1]+6); tx.setAttribute('text-anchor','middle');
+        tx.setAttribute('font-size','16'); tx.setAttribute('font-weight','600'); tx.setAttribute('fill','#633806');
+        tx.textContent=String(idx+1);
+        g.appendChild(ci); g.appendChild(tx);
+        g.addEventListener('click',function(){ onPick(idx); });
+        blips.appendChild(g);
+      });
+      clue([['a',a2.x+', '+a2.y],['후보',String(n)+'개']]);
+      q.textContent = k==='max'
+        ? '후보 점 중 a와의 내적 a·p가 가장 큰 점을 누르세요.'
+        : '후보 점 중 a와의 내적 a·p가 가장 작은 점을 누르세요.';
+      timer(Math.max(9000,15000-(lvl()-1)*1500));
+    }
+  }
+  function updateGuess(){
+    var v=+document.getElementById('slider').value;
+    document.getElementById('sliderout').textContent=v+'°';
+    var th=(st.aAng+v)*Math.PI/180;
+    setLine('guess',Math.cos(th),Math.sin(th),200);
+    var r=76, a0=st.aAng*Math.PI/180;
+    var p0=[ox+r*Math.cos(a0), oy-r*Math.sin(a0)], p1=[ox+r*Math.cos(th), oy-r*Math.sin(th)];
+    var arc=document.getElementById('arc');
+    arc.setAttribute('d','M'+p0[0]+' '+p0[1]+' A '+r+' '+r+' 0 0 0 '+p1[0]+' '+p1[1]);
+    arc.setAttribute('opacity','1');
+  }
+  document.getElementById('slider').addEventListener('input',function(){
+    if(st.kind==='angle'&&!st.answered) updateGuess();
+  });
+
+  /* 화면을 직접 끌어서 각을 정하기 */
+  function pointAngle(evt){
+    var r=board.getBoundingClientRect();
+    var cx=(evt.clientX-r.left)/r.width*560, cy=(evt.clientY-r.top)/r.height*560;
+    var deg=Math.atan2(oy-cy, cx-ox)*180/Math.PI;
+    var rel=deg-st.aAng;
+    while(rel>180) rel-=360; while(rel<-180) rel+=360;
+    return Math.round(Math.abs(rel));
+  }
+  var dragging=false;
+  function dragStart(e){
+    if(st.kind!=='angle'||st.answered||st.over) return;
+    dragging=true; e.preventDefault();
+    document.getElementById('slider').value=pointAngle(e); updateGuess();
+  }
+  function dragMove(e){
+    if(!dragging) return;
+    e.preventDefault();
+    document.getElementById('slider').value=pointAngle(e); updateGuess();
+  }
+  function dragEnd(){ dragging=false; }
+  board.addEventListener('pointerdown',dragStart);
+  board.addEventListener('pointermove',dragMove);
+  window.addEventListener('pointerup',dragEnd);
+  window.addEventListener('pointercancel',dragEnd);
+
+  document.getElementById('guessbtn').addEventListener('click',function(){
+    if(st.answered||st.over||st.kind!=='angle') return;
+    var v=+document.getElementById('slider').value;
+    reveal();
+    score(Math.abs(v-st.trueAng)<=tol(), null, false, Math.abs(v-st.trueAng));
+  });
+
+  function reveal(){
+    if(st.kind==='angle'){
+      setLine('vecB',st.b.x,st.b.y); labelAt(st.b.x,st.b.y,'b','var(--vecB)');
+      var mb=mag(st.b), th2=(st.aAng-st.trueAng)*Math.PI/180;
+      setLine('vecB2',Math.cos(th2),Math.sin(th2),mb*S);
+      var d=dot(st.a,st.b), c=d/(mag(st.a)*mag(st.b));
+      document.getElementById('work').textContent=
+        'cos θ = '+d+' ÷ ('+mag(st.a).toFixed(2)+' × '+mag(st.b).toFixed(2)+') = '+c.toFixed(3)+' → θ ≈ '+st.trueAng.toFixed(1)+'° · 점선은 같은 내적을 주는 반대쪽 방향';
+    } else {
+      var a=st.a, dd=a.x*a.x+a.y*a.y;
+      st.cands.forEach(function(p){
+        var dv=dot(a,p), f={x:a.x*dv/dd, y:a.y*dv/dd};
+        var pc=px(p.x,p.y), pf=px(f.x,f.y);
+        var l=document.createElementNS(NS,'line');
+        l.setAttribute('x1',pc[0]); l.setAttribute('y1',pc[1]); l.setAttribute('x2',pf[0]); l.setAttribute('y2',pf[1]);
+        l.setAttribute('stroke','var(--muted)'); l.setAttribute('stroke-width','1.4'); l.setAttribute('stroke-dasharray','5 4');
+        extra.appendChild(l);
+        var fp=document.createElementNS(NS,'circle');
+        fp.setAttribute('cx',pf[0]); fp.setAttribute('cy',pf[1]); fp.setAttribute('r','5');
+        fp.setAttribute('fill','var(--vecA)'); extra.appendChild(fp);
+        var t=document.createElementNS(NS,'text');
+        t.setAttribute('x',pc[0]); t.setAttribute('y',pc[1]-26); t.setAttribute('text-anchor','middle');
+        t.setAttribute('font-size','15'); t.setAttribute('font-weight','600'); t.setAttribute('fill','var(--ink)');
+        t.textContent=String(dv); extra.appendChild(t);
+      });
+      document.getElementById('work').textContent='점선은 각 점을 a 위로 내린 정사영입니다. 파란 점이 a 방향으로 멀리 갈수록 내적이 큽니다.';
+    }
+  }
+  function bestOf(kind){
+    var bi=0, bv=kind==='max'?-1e9:1e9;
+    st.cands.forEach(function(p,i){ var d=dot(st.a,p); if(kind==='max'? d>bv : d<bv){ bv=d; bi=i; } });
+    return {i:bi,v:bv};
+  }
+  function onPick(idx){
+    if(st.answered||st.over||st.kind==='angle') return;
+    reveal();
+    var b=bestOf(st.kind);
+    score(idx===b.i, st.cands[idx], false, 0);
+  }
+  function score(ok,at,timedOut,err){
+    var frac=stopT(), fb=document.getElementById('feedback');
+    if(ok){
+      sc.ok++; sc.streak++; sc.best=Math.max(sc.best,sc.streak);
+      var bonus=(st.kind==='angle'&&err<=4)?8:0;
+      var p=Math.round((10+12*frac+bonus)*mul());
+      sc.pts+=p;
+      if(at) ringAt(at.x,at.y,'var(--success)');
+      fb.style.color='var(--success)';
+      fb.textContent = st.kind==='angle'
+        ? '정답. 오차 '+err.toFixed(1)+'° · +'+p+'점'+(bonus?' (정밀 보너스)':'')
+        : '정답. +'+p+'점';
+    } else {
+      sc.streak=0; sc.lives=Math.max(0,sc.lives-1);
+      fb.style.color='var(--danger)';
+      if(timedOut) fb.textContent='시간 초과.';
+      else if(st.kind==='angle') fb.textContent='오차 '+err.toFixed(1)+'° — 실제 각은 '+st.trueAng.toFixed(1)+'°입니다.';
+      else { var b=bestOf(st.kind); fb.textContent=(b.i+1)+'번 점의 내적이 '+b.v+'로 '+(st.kind==='max'?'가장 큽니다.':'가장 작습니다.'); }
+      board.classList.add('shk'); setTimeout(function(){ board.classList.remove('shk'); },340);
+    }
+    hud(); st.answered=true;
+    if(sc.lives<=0) over(); else document.getElementById('nextbtn').style.display='block';
+  }
+  function over(){
+    st.over=true; stopT();
+    if(sc.pts>bestPts) bestPts=sc.pts;
+    document.getElementById('anglebox').style.display='none';
+    document.getElementById('nextbtn').style.display='none';
+    var r=sc.pts>=380?'S 등급 · 각도 감별사':(sc.pts>=240?'A 등급 · 숙련자':(sc.pts>=120?'B 등급 · 중급':'C 등급 · 입문'));
+    document.getElementById('rank').textContent=r;
+    document.getElementById('gostats').textContent='점수 '+sc.pts+' · 도달 단계 '+lvl()+' · 성공 '+sc.ok+'회 · 최고 연속 '+sc.best;
+    document.getElementById('gameover').style.display='block';
+    hud();
+  }
+  function reset(){
+    if(sc.pts>bestPts) bestPts=sc.pts;
+    sc={pts:0,ok:0,streak:0,best:0,lives:3};
+    st.over=false;
+    document.getElementById('gameover').style.display='none';
+    hud();
+  }
+  document.getElementById('nextbtn').addEventListener('click',next);
+  document.getElementById('restartbtn').addEventListener('click',function(){ reset(); next(); });
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden && !st.answered && !st.over){
+      stopT(); st.answered=true;
+      var fb=document.getElementById('feedback');
+      fb.style.color='var(--muted)'; fb.textContent='일시정지 — 화면을 벗어나 타이머를 멈췄습니다.';
+      var nb=document.getElementById('nextbtn');
+      nb.style.display='block'; nb.textContent='이어서 하기 ↗';
+    }
+  });
+  reset(); setMode('mix');
+})();
+</script>
+</body>
+</html>
