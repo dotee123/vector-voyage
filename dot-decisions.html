@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F4EAD5">
+<title>내적 의사결정 — 현실 문제 풀기</title>
+<style>
+  :root{
+    --parchment:#F4EAD5; --surface:#FFFDF7; --ink:#1E3A52; --muted:#6B7E8C;
+    --line:#D9CDB4; --panel:#EEF4F8; --gold:#9C6F1E; --danger:#A32D2D; --success:#0F6E56;
+    --vec:#185FA5; --vec2:#993C1D;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--parchment);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;
+    font-size:16px;line-height:1.5;
+    padding:max(12px,env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust:100%;touch-action:manipulation}
+  .wrap{max-width:640px;margin:0 auto}
+  header{display:flex;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  h1{font-size:20px;margin:0;font-weight:600}
+  header .sub{font-size:12.5px;color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .hud{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:8px}
+  .hud b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .lives{color:var(--danger);letter-spacing:2px;font-size:14px}
+  .modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  button{font:inherit;font-size:13px;font-weight:500;color:var(--ink);background:var(--surface);
+    border:1px solid var(--line);border-radius:999px;padding:9px 14px;min-height:40px;cursor:pointer}
+  button:active{background:#EFE4CB}
+  button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#FFF8E8}
+  .big-btn{min-height:48px;font-size:15px;padding:12px 22px;background:var(--ink);color:#FFF8E8;border-color:var(--ink);width:100%}
+  .timer-track{height:8px;background:#E6DAC0;border-radius:4px;overflow:hidden;margin:6px 0 10px}
+  .timer-fill{height:100%;width:100%;background:var(--gold);border-radius:4px}
+  #tag{font-size:12px;font-weight:600;color:var(--gold);margin:0 0 4px}
+  #story{font-size:15px;margin:0 0 10px;font-weight:500;line-height:1.55}
+  #given{background:var(--panel);border-radius:10px;padding:10px 12px;font-size:13.5px;margin:0 0 10px;color:var(--ink)}
+  #given .k{color:var(--muted)}
+  svg#viz{display:block;width:100%;height:auto;margin-bottom:10px}
+  .opts{display:grid;gap:8px;grid-template-columns:1fr}
+  @media(min-width:520px){ .opts{grid-template-columns:1fr 1fr} }
+  .opt{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface);cursor:pointer;text-align:left}
+  .opt:active{background:#F6EFE0}
+  .opt .nm{font-size:15px;font-weight:600;display:block;margin-bottom:2px}
+  .opt .de{font-size:13px;color:var(--muted);display:block}
+  .opt .calc{font-size:13px;font-weight:600;display:none;margin-top:6px;font-variant-numeric:tabular-nums}
+  .opt.win{border-color:var(--success);border-width:2px}
+  .opt.lose{opacity:.75}
+  .bars{display:flex;gap:4px;align-items:flex-end;height:44px;margin-top:8px}
+  .bars i{flex:1;background:#B5D4F4;border-radius:3px 3px 0 0;display:block}
+  #feedback{font-size:14.5px;font-weight:500;margin:12px 0 0;min-height:22px}
+  #work{font-size:13px;color:var(--muted);margin:6px 0 0;min-height:18px;line-height:1.55}
+  #gameover{display:none;margin-top:12px;text-align:center;background:#FFF8E8;border:1px solid var(--line);border-radius:14px;padding:16px}
+  #rank{font-size:21px;font-weight:600;color:var(--gold);margin:0 0 6px}
+  #gostats{font-size:13.5px;color:var(--muted);margin:0 0 12px}
+  details{margin-top:12px;font-size:13.5px;color:var(--muted)}
+  summary{cursor:pointer;font-weight:500;color:var(--ink);padding:6px 0;min-height:32px}
+  footer{margin-top:14px;font-size:12px;color:var(--muted);text-align:center}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>내적 의사결정</h1>
+    <span class="sub">현실 문제를 내적으로 판단하기</span>
+  </header>
+
+  <div class="card">
+    <div class="hud">
+      <span>기회 <span class="lives" id="lives">●●●</span></span>
+      <span>단계 <b id="lvl">1</b></span>
+      <span>점수 <b id="pts">0</b></span>
+      <span>연속 <b id="str">0</b> <span id="mul" style="color:var(--gold);font-weight:600"></span></span>
+      <span>최고 <b id="bestpts">0</b></span>
+    </div>
+
+    <div class="modes" id="modes"></div>
+    <div class="timer-track"><div class="timer-fill" id="timerfill"></div></div>
+
+    <p id="tag"></p>
+    <p id="story"></p>
+    <div id="given"></div>
+    <svg id="viz" viewBox="0 0 560 260" role="img" aria-labelledby="vt vd">
+      <title id="vt">상황 그림</title>
+      <desc id="vd">문제 상황을 나타내는 그림. 태양광 문제는 지붕면의 법선과 햇빛 방향, 항로 문제는 바람과 후보 항로를 화살표로 보여준다.</desc>
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <g id="stage"></g>
+    </svg>
+
+    <div class="opts" id="opts"></div>
+
+    <p id="feedback" aria-live="polite"></p>
+    <p id="work"></p>
+    <button type="button" id="nextbtn" class="big-btn" style="display:none;margin-top:10px">다음 상황 ↗</button>
+
+    <div id="gameover">
+      <p style="font-size:16px;margin:0 0 4px;font-weight:600">게임 종료</p>
+      <p id="rank"></p>
+      <p id="gostats"></p>
+      <button type="button" id="restartbtn" class="big-btn">다시 시작 ↗</button>
+    </div>
+  </div>
+
+  <details>
+    <summary>어떤 상황들인가</summary>
+    <p><b>태양광 설치</b> — 발전량은 패널이 받는 빛의 양, 즉 면적 × cos θ에 비례합니다. 각도만 좋은 작은 패널과 각도가 나쁜 큰 패널 중 무엇을 고를지가 진짜 문제입니다.</p>
+    <p><b>추천 알고리즘</b> — 취향이 얼마나 비슷한지는 코사인 유사도 (a·b)/(|a||b|)로 잽니다. 시청량이 많은 사람은 내적이 그냥 커지므로, 크기로 나누지 않으면 판단을 그르칩니다.</p>
+    <p><b>항로 선택</b> — 바람이 실제로 밀어주는 양은 진행 방향으로의 정사영 (w·d)/|d|입니다. 거리가 먼 항로는 내적이 커 보여도 단위 거리당 도움은 작을 수 있습니다.</p>
+    <p>세 상황 모두 "내적만 크면 되는 것이 아니라 크기로 나눠야 한다"는 판단이 핵심입니다.</p>
+  </details>
+
+  <footer>수학 · 벡터의 내적 활용 · 인터넷 연결 없이도 실행됩니다</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var NS='http://www.w3.org/2000/svg';
+  var stage=document.getElementById('stage'), viz=document.getElementById('viz'),
+      optsEl=document.getElementById('opts');
+  function el(tag,a,p){ var e=document.createElementNS(NS,tag); for(var k in a) e.setAttribute(k,a[k]); (p||stage).appendChild(e); return e; }
+  function txt(x,y,s,a){ var t=el('text',Object.assign({x:x,y:y,'font-size':13,fill:'var(--ink)'},a||{})); t.textContent=s; return t; }
+  function ri(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+  function pickOne(arr){ return arr[ri(0,arr.length-1)]; }
+  function d2(u,v){ return u.x*v.x+u.y*v.y; }
+  function m2(u){ return Math.sqrt(u.x*u.x+u.y*u.y); }
+  function d3(u,v){ return u[0]*v[0]+u[1]*v[1]+u[2]*v[2]; }
+  function m3(u){ return Math.sqrt(u[0]*u[0]+u[1]*u[1]+u[2]*u[2]); }
+
+  var MODES=[{id:'mix',label:'전체'},{id:'solar',label:'태양광'},{id:'rec',label:'추천'},{id:'route',label:'항로'}];
+  var mr=document.getElementById('modes');
+  MODES.forEach(function(m){
+    var b=document.createElement('button'); b.type='button'; b.textContent=m.label; b.dataset.m=m.id;
+    b.addEventListener('click',function(){ setMode(m.id); }); mr.appendChild(b);
+  });
+
+  var VEC5=[{x:3,y:4},{x:4,y:3},{x:-3,y:4},{x:-4,y:3},{x:0,y:5},{x:5,y:0},{x:-5,y:0}];
+  var NICE3=[[2,3,6],[6,2,3],[3,6,2],[1,2,2],[2,2,1],[2,1,2],[4,4,7],[7,4,4],[4,7,4],[1,4,8],[8,1,4],[4,8,1],[3,4,12],[12,3,4],[4,12,3]];
+
+  var st={mode:'mix',kind:'solar',opts:[],bestIdx:0,answered:false,over:false,t0:0,to:null,dur:26000};
+  var sc={pts:0,ok:0,streak:0,best:0,lives:3}, bestPts=0;
+  function lvl(){ return Math.min(Math.floor(sc.ok/3)+1,4); }
+  function mul(){ return sc.streak>=6?2.5:(sc.streak>=4?2:(sc.streak>=2?1.5:1)); }
+
+  function hud(){
+    document.getElementById('lvl').textContent=lvl();
+    document.getElementById('pts').textContent=sc.pts;
+    document.getElementById('str').textContent=sc.streak;
+    document.getElementById('bestpts').textContent=bestPts;
+    document.getElementById('mul').textContent=mul()>1?'×'+mul():'';
+    var h=''; for(var i=0;i<3;i++) h+= i<sc.lives?'●':'○';
+    document.getElementById('lives').textContent=h;
+  }
+  function timer(ms){
+    st.dur=ms; var f=document.getElementById('timerfill');
+    f.style.transition='none'; f.style.width='100%'; void f.offsetWidth; st.t0=Date.now();
+    requestAnimationFrame(function(){ f.style.transition='width '+ms+'ms linear'; f.style.width='0%'; });
+    if(st.to) clearTimeout(st.to);
+    st.to=setTimeout(function(){ if(!st.answered&&!st.over){ reveal(); score(false,true); } },ms);
+  }
+  function stopT(){
+    var f=document.getElementById('timerfill'), e=Date.now()-st.t0;
+    f.style.transition='none'; f.style.width=Math.max(0,100-100*e/st.dur)+'%';
+    if(st.to){ clearTimeout(st.to); st.to=null; }
+    return Math.max(0,1-e/st.dur);
+  }
+  function setMode(m){
+    st.mode=m;
+    Array.prototype.forEach.call(mr.children,function(b){ b.setAttribute('aria-pressed', String(b.dataset.m===m)); });
+    reset(); next();
+  }
+  function pickKind(){
+    if(st.mode!=='mix') return st.mode;
+    var pool=['solar','rec'];
+    if(lvl()>=2) pool.push('route');
+    return pickOne(pool);
+  }
+  function renderOpts(list){
+    optsEl.innerHTML='';
+    list.forEach(function(o,i){
+      var b=document.createElement('button');
+      b.type='button'; b.className='opt';
+      var nm=document.createElement('span'); nm.className='nm'; nm.textContent=o.name;
+      var de=document.createElement('span'); de.className='de'; de.textContent=o.desc;
+      b.appendChild(nm); b.appendChild(de);
+      if(o.bars){
+        var bw=document.createElement('span'); bw.className='bars';
+        var mx=Math.max.apply(null,o.bars);
+        o.bars.forEach(function(v){ var s=document.createElement('i'); s.style.height=Math.round(8+36*v/mx)+'px'; bw.appendChild(s); });
+        b.appendChild(bw);
+      }
+      var ca=document.createElement('span'); ca.className='calc'; b.appendChild(ca);
+      b.addEventListener('click',function(){ choose(i); });
+      optsEl.appendChild(b);
+    });
+  }
+  function next(){
+    document.getElementById('feedback').textContent='';
+    document.getElementById('work').textContent='';
+    document.getElementById('nextbtn').style.display='none';
+    stage.innerHTML=''; viz.style.display='block';
+    st.answered=false;
+    var k=pickKind(); st.kind=k;
+    if(k==='solar') buildSolar();
+    else if(k==='rec') buildRec();
+    else buildRoute();
+  }
+
+  /* 1. 태양광 설치 */
+  function buildSolar(){
+    document.getElementById('tag').textContent='에너지 · 태양광 패널 설치';
+    var n=lvl()>=3?4:3;
+    var sun=pickOne(VEC5.filter(function(v){ return v.y>0; }));
+    var used={}, list=[];
+    for(var i=0;i<n;i++){
+      var nv, g=0;
+      do{ nv=pickOne(VEC5); g++; }while((used[nv.x+','+nv.y]||d2(nv,sun)<=0)&&g<60);
+      used[nv.x+','+nv.y]=1;
+      var area=ri(4,12);
+      var cos=d2(nv,sun)/25;
+      list.push({name:'지붕 '+String.fromCharCode(65+i), desc:'법선 n = ('+nv.x+', '+nv.y+') · 면적 '+area+' m²',
+                 n:nv, area:area, cos:cos, val:area*cos});
+    }
+    var vals=list.map(function(o){ return o.val; });
+    var bi=0; vals.forEach(function(v,i){ if(v>vals[bi]) bi=i; });
+    var sorted=vals.slice().sort(function(a,b){ return b-a; });
+    if(sorted[0]-sorted[1]<0.35){ buildSolar(); return; }
+    var areaMax=0, ai=0; list.forEach(function(o,i){ if(o.area>list[ai].area) ai=i; });
+    var cosMax=0, ci=0; list.forEach(function(o,i){ if(o.cos>list[ci].cos) ci=i; });
+    if(ai===bi && ci===bi){ buildSolar(); return; }
+
+    st.opts=list; st.bestIdx=bi;
+    document.getElementById('story').textContent='학교 옥상에 태양광 패널을 하나만 설치할 수 있습니다. 지붕면마다 기울기와 넓이가 다릅니다. 하루 발전량이 가장 큰 곳은 어디일까요?';
+    document.getElementById('given').innerHTML='<span class="k">햇빛 방향</span> s = ('+sun.x+', '+sun.y+'),  |s| = 5 · <span class="k">모든 법선의 크기</span> |n| = 5 · <span class="k">발전량</span> ∝ 면적 × cos θ';
+    var m=m2(sun);
+    el('circle',{cx:70,cy:52,r:16,fill:'#FAC775',stroke:'#BA7517'});
+    txt(70,90,'태양',{ 'text-anchor':'middle',fill:'var(--muted)'});
+    el('line',{x1:86,y1:60,x2:86+sun.x/m*54,y2:60-sun.y/m*54,stroke:'#BA7517','stroke-width':3,'marker-end':'url(#ar)'});
+    list.forEach(function(o,i){
+      var cx=170+i*(360/n)+ (n===4?0:20), cy=170, mn=5;
+      var px=-o.n.y/mn, py=o.n.x/mn, half=14+o.area*2.2;
+      el('line',{x1:cx-px*half,y1:cy+py*half,x2:cx+px*half,y2:cy-py*half,stroke:'#5F5E5A','stroke-width':8,'stroke-linecap':'round'});
+      el('line',{x1:cx,y1:cy,x2:cx+o.n.x/mn*34,y2:cy-o.n.y/mn*34,stroke:'var(--vec)','stroke-width':2.4,'marker-end':'url(#ar)'});
+      txt(cx,cy+58,String.fromCharCode(65+i),{ 'text-anchor':'middle','font-weight':600});
+    });
+    renderOpts(list);
+    timer(Math.max(20000,32000-(lvl()-1)*3000));
+  }
+
+  /* 2. 추천 알고리즘 */
+  function buildRec(){
+    document.getElementById('tag').textContent='추천 알고리즘 · 코사인 유사도';
+    var me=pickOne(NICE3), used={}, list=[], n=3;
+    used[me.join()]=1;
+    for(var i=0;i<n;i++){
+      var v,g=0;
+      do{ v=pickOne(NICE3); g++; }while(used[v.join()]&&g<60);
+      used[v.join()]=1;
+      var scale=[1,1,2,3][ri(0,3)];
+      var w=[v[0]*scale,v[1]*scale,v[2]*scale];
+      list.push({name:['민서','재윤','하람','서준'][i], desc:'액션 '+w[0]+'h · 코미디 '+w[1]+'h · 다큐 '+w[2]+'h',
+                 v:w, bars:w, dot:d3(me,w), cos:d3(me,w)/(m3(me)*m3(w))});
+    }
+    var cs=list.map(function(o){ return o.cos; });
+    var bi=0; cs.forEach(function(c,i){ if(c>cs[bi]) bi=i; });
+    var di=0; list.forEach(function(o,i){ if(o.dot>list[di].dot) di=i; });
+    var sorted=cs.slice().sort(function(a,b){ return b-a; });
+    if(di===bi || sorted[0]-sorted[1]<0.02){ buildRec(); return; }
+
+    st.opts=list; st.bestIdx=bi;
+    document.getElementById('story').textContent='영상 추천 서비스가 나와 취향이 가장 비슷한 사람을 찾아 그 사람이 본 영상을 추천하려 합니다. 세 사람 중 누구를 골라야 할까요?';
+    document.getElementById('given').innerHTML='<span class="k">나의 시청 시간</span> 액션 '+me[0]+'h · 코미디 '+me[1]+'h · 다큐 '+me[2]+'h &nbsp;→&nbsp; a = ('+me.join(', ')+'), |a| = '+m3(me).toFixed(0)+
+      '<br><span class="k">비슷한 정도</span> = cos θ = (a·b)/(|a||b|) — 총 시청량이 아니라 <b>비율</b>이 닮았는지를 봅니다.';
+    viz.style.display='none';
+    renderOpts(list);
+    timer(Math.max(22000,34000-(lvl()-1)*3000));
+  }
+
+  /* 3. 항로 선택 */
+  function buildRoute(){
+    document.getElementById('tag').textContent='항해 · 바람을 가장 잘 쓰는 항로';
+    var w={x:ri(-5,5),y:ri(-5,5)};
+    if(w.x===0&&w.y===0) w={x:3,y:4};
+    var pool=[{x:3,y:4},{x:4,y:3},{x:-3,y:4},{x:-4,y:3},{x:5,y:12},{x:12,y:5},{x:-5,y:12},{x:0,y:5},{x:5,y:0},{x:-5,y:0},{x:0,y:13}];
+    var used={}, list=[], n=3;
+    for(var i=0;i<n;i++){
+      var d,g=0;
+      do{ d=pickOne(pool); g++; }while(used[d.x+','+d.y]&&g<60);
+      used[d.x+','+d.y]=1;
+      var len=Math.round(m2(d));
+      list.push({name:'항로 '+String.fromCharCode(65+i), desc:'변위 d = ('+d.x+', '+d.y+') · 거리 '+len+' km',
+                 d:d, len:len, dot:d2(w,d), proj:d2(w,d)/m2(d)});
+    }
+    var ps=list.map(function(o){ return o.proj; });
+    var bi=0; ps.forEach(function(p,i){ if(p>ps[bi]) bi=i; });
+    var di=0; list.forEach(function(o,i){ if(o.dot>list[di].dot) di=i; });
+    var sorted=ps.slice().sort(function(a,b){ return b-a; });
+    if(di===bi || sorted[0]-sorted[1]<0.4){ buildRoute(); return; }
+
+    st.opts=list; st.bestIdx=bi;
+    document.getElementById('story').textContent='요트로 세 항로 중 하나를 택합니다. 바람이 진행 방향으로 밀어주는 정도(단위 거리당 순풍 성분)가 가장 큰 항로는 어디일까요?';
+    document.getElementById('given').innerHTML='<span class="k">바람</span> w = ('+w.x+', '+w.y+') · <span class="k">순풍 성분</span> = (w·d)/|d| — 거리로 나눠야 공정한 비교가 됩니다.';
+    var cx=100, cy=190, k=9;
+    el('circle',{cx:cx,cy:cy,r:8,fill:'#5F5E5A'});
+    txt(cx,cy+26,'출발항',{ 'text-anchor':'middle',fill:'var(--muted)'});
+    var mw=m2(w);
+    el('line',{x1:430,y1:70,x2:430+w.x/mw*54,y2:70-w.y/mw*54,stroke:'#BA7517','stroke-width':3.4,'marker-end':'url(#ar)'});
+    txt(430,54,'바람 w',{ 'text-anchor':'middle',fill:'#854F0B','font-weight':600});
+    list.forEach(function(o,i){
+      var ex=cx+o.d.x*k, ey=cy-o.d.y*k;
+      el('line',{x1:cx,y1:cy,x2:ex,y2:ey,stroke:'var(--vec)','stroke-width':2.6,'marker-end':'url(#ar)',opacity:0.85});
+      txt(ex+10,ey-6,String.fromCharCode(65+i),{ 'font-weight':600,fill:'var(--vec)'});
+    });
+    renderOpts(list);
+    timer(Math.max(20000,32000-(lvl()-1)*3000));
+  }
+
+  function reveal(){
+    var cards=optsEl.querySelectorAll('.opt');
+    st.opts.forEach(function(o,i){
+      var c=cards[i].querySelector('.calc');
+      c.style.display='block';
+      if(st.kind==='solar'){
+        c.textContent='cos θ = '+o.cos.toFixed(2)+' · 발전량 ∝ '+o.area+' × '+o.cos.toFixed(2)+' = '+o.val.toFixed(2);
+      } else if(st.kind==='rec'){
+        c.textContent='a·b = '+o.dot+' · |b| = '+m3(o.v).toFixed(1)+' · cos θ = '+o.cos.toFixed(3);
+      } else {
+        c.textContent='w·d = '+o.dot+' · |d| = '+o.len+' · 순풍 성분 = '+o.proj.toFixed(2);
+      }
+      c.style.color = i===st.bestIdx ? 'var(--success)' : 'var(--muted)';
+      cards[i].classList.add(i===st.bestIdx?'win':'lose');
+    });
+    var w=document.getElementById('work');
+    if(st.kind==='solar') w.textContent='각도가 가장 좋은 면도, 가장 넓은 면도 정답이 아닐 수 있습니다. 실제로 받는 빛의 양은 면적 × cos θ이고, cos θ는 (n·s)/(|n||s|)로 구합니다.';
+    else if(st.kind==='rec') w.textContent='내적만 보면 시청량이 많은 사람이 무조건 유리합니다. 크기로 나눈 코사인 유사도라야 취향의 방향이 얼마나 닮았는지를 잽니다.';
+    else w.textContent='내적 w·d가 큰 항로가 아니라, 거리로 나눈 (w·d)/|d|가 큰 항로가 단위 거리당 바람의 도움을 가장 많이 받습니다.';
+  }
+  function choose(i){
+    if(st.answered||st.over) return;
+    reveal();
+    score(i===st.bestIdx,false);
+  }
+  function score(ok,timedOut){
+    var frac=stopT(), fb=document.getElementById('feedback');
+    if(ok){
+      sc.ok++; sc.streak++; sc.best=Math.max(sc.best,sc.streak);
+      var p=Math.round((12+12*frac)*mul());
+      sc.pts+=p;
+      fb.style.color='var(--success)'; fb.textContent='정답. +'+p+'점';
+    } else {
+      sc.streak=0; sc.lives=Math.max(0,sc.lives-1);
+      fb.style.color='var(--danger)';
+      fb.textContent=(timedOut?'시간 초과. ':'')+'정답은 '+st.opts[st.bestIdx].name+'입니다.';
+    }
+    hud(); st.answered=true;
+    if(sc.lives<=0) over(); else document.getElementById('nextbtn').style.display='block';
+  }
+  function over(){
+    st.over=true; stopT();
+    if(sc.pts>bestPts) bestPts=sc.pts;
+    document.getElementById('nextbtn').style.display='none';
+    var r=sc.pts>=300?'S 등급 · 최적 의사결정자':(sc.pts>=190?'A 등급 · 분석가':(sc.pts>=90?'B 등급 · 중급':'C 등급 · 입문'));
+    document.getElementById('rank').textContent=r;
+    document.getElementById('gostats').textContent='점수 '+sc.pts+' · 도달 단계 '+lvl()+' · 성공 '+sc.ok+'회 · 최고 연속 '+sc.best;
+    document.getElementById('gameover').style.display='block';
+    hud();
+  }
+  function reset(){
+    if(sc.pts>bestPts) bestPts=sc.pts;
+    sc={pts:0,ok:0,streak:0,best:0,lives:3};
+    st.over=false;
+    document.getElementById('gameover').style.display='none';
+    hud();
+  }
+  document.getElementById('nextbtn').addEventListener('click',next);
+  document.getElementById('restartbtn').addEventListener('click',function(){ reset(); next(); });
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden && !st.answered && !st.over){
+      stopT(); st.answered=true;
+      var fb=document.getElementById('feedback');
+      fb.style.color='var(--muted)'; fb.textContent='일시정지 — 화면을 벗어나 타이머를 멈췄습니다.';
+      var nb=document.getElementById('nextbtn'); nb.style.display='block'; nb.textContent='이어서 하기 ↗';
+    }
+  });
+  reset(); setMode('mix');
+})();
+</script>
+</body>
+</html>
