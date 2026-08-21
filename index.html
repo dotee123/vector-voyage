@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F4EAD5">
+<title>벡터 항해 — 벡터의 연산 연습</title>
+<style>
+  :root{
+    --parchment:#F4EAD5; --surface:#FFFDF7; --ink:#1E3A52; --muted:#6B7E8C;
+    --line:#D9CDB4; --sea:#E4F0F6; --grid:#B4D0DF; --axis:#6E9BB5;
+    --gold:#9C6F1E; --danger:#A32D2D; --success:#0F6E56; --wind:#185FA5; --tide:#993C1D;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--parchment); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;
+    font-size:16px; line-height:1.5;
+    padding:max(12px,env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust:100%; touch-action:manipulation;
+  }
+  .wrap{max-width:620px;margin:0 auto}
+  header{display:flex;align-items:baseline;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  h1{font-size:20px;margin:0;letter-spacing:-.01em;font-weight:600}
+  header .sub{font-size:12.5px;color:var(--muted)}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .hud{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:8px}
+  .hud b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .heart{font-size:15px;color:var(--danger);letter-spacing:1px}
+  .heart .off{color:#D8CDBB}
+  .modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  button{
+    font:inherit;font-size:13px;font-weight:500;color:var(--ink);
+    background:var(--surface);border:1px solid var(--line);border-radius:999px;
+    padding:9px 14px;min-height:40px;cursor:pointer;transition:background .12s,border-color .12s;
+  }
+  button:active{background:#EFE4CB}
+  button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#FFF8E8}
+  .big-btn{min-height:48px;font-size:15px;padding:12px 22px;background:var(--ink);color:#FFF8E8;border-color:var(--ink)}
+  .big-btn:active{background:#16303f}
+  .timer-track{height:8px;background:#E6DAC0;border-radius:4px;overflow:hidden;margin:6px 0 10px}
+  .timer-fill{height:100%;width:100%;background:var(--gold);border-radius:4px}
+  #banner{display:none;font-size:13px;font-weight:600;color:var(--gold);margin:0 0 6px}
+  #qtext{font-size:15px;margin:0 0 8px;min-height:44px;font-weight:500}
+  svg#board{display:block;width:100%;height:auto;touch-action:manipulation}
+  .numrow{display:none;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+  input[type=number]{
+    font:inherit;font-size:16px;padding:10px 12px;width:150px;min-height:44px;
+    border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);
+  }
+  input[type=number]:focus{outline:2px solid var(--gold);outline-offset:1px}
+  #feedback{font-size:14.5px;font-weight:500;margin:10px 0 0;min-height:22px}
+  #toast{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top));
+    background:var(--ink);color:#FFF8E8;font-size:13px;font-weight:500;padding:9px 16px;border-radius:999px;
+    opacity:0;pointer-events:none;z-index:20;box-shadow:0 4px 14px rgba(30,58,82,.22)}
+  #gameover{display:none;margin-top:12px;text-align:center;background:#FFF8E8;border:1px solid var(--line);border-radius:14px;padding:16px}
+  #gameover h2{font-size:16px;margin:0 0 4px;font-weight:600}
+  #ranktext{font-size:21px;font-weight:600;color:var(--gold);margin:0 0 6px}
+  #gostats{font-size:13.5px;color:var(--muted);margin:0 0 12px}
+  details{margin-top:12px;font-size:13.5px;color:var(--muted)}
+  summary{cursor:pointer;font-weight:500;color:var(--ink);padding:6px 0;min-height:32px}
+  details p{margin:6px 0}
+  footer{margin-top:14px;font-size:12px;color:var(--muted);text-align:center}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  @keyframes floatUp{0%{transform:translateY(0);opacity:1}100%{transform:translateY(-22px);opacity:0}}
+  @keyframes pulseRing{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(2.4)}}
+  @keyframes heartPulse{0%{transform:scale(1)}50%{transform:scale(1.35)}100%{transform:scale(.9)}}
+  @keyframes shakeIt{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+  @keyframes drift{0%{transform:translateX(0)}100%{transform:translateX(-40px)}}
+  @keyframes bobber{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-2.5px) rotate(2deg)}}
+  @keyframes popIn{0%{opacity:0;transform:scale(.5)}70%{transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}
+  @keyframes toastIn{0%{opacity:0;transform:translate(-50%,8px)}18%{opacity:1;transform:translate(-50%,0)}82%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-8px)}}
+  @media (prefers-reduced-motion:no-preference){
+    .pop{animation:floatUp .8s ease-out forwards}
+    .pulsering{animation:pulseRing .55s ease-out forwards}
+    .heartlost{display:inline-block;animation:heartPulse .32s ease-out}
+    .shake{animation:shakeIt .32s ease-in-out}
+    .waves{animation:drift 6s linear infinite}
+    #shipBody{animation:bobber 2.6s ease-in-out infinite;transform-origin:center}
+    .islandpop{animation:popIn .4s ease-out forwards;transform-box:fill-box;transform-origin:center}
+    .toastshow{animation:toastIn 1.8s ease-out forwards}
+  }
+  #ship{transition:transform .6s cubic-bezier(.4,0,.2,1)}
+  #ship,#islandIcon{pointer-events:none}
+  @media (max-width:420px){
+    h1{font-size:18px}
+    #compass{display:none}
+    button{font-size:12.5px;padding:8px 12px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>⚓ 벡터 항해</h1>
+    <span class="sub">바람과 조류를 합성해 보물섬으로</span>
+  </header>
+
+  <div class="card">
+    <div class="hud">
+      <span>선체 <span class="heart" id="hearts">♥♥♥</span></span>
+      <span>해역 <b id="lvlval">1</b></span>
+      <span style="position:relative">보물 <b id="pointsval">0</b><span id="popupwrap" style="position:absolute;top:-2px;left:100%;margin-left:5px"></span></span>
+      <span>연속 <b id="streakval">0</b> <span id="multival" style="color:var(--gold);font-weight:600"></span></span>
+      <span>최고 <b id="bestval">0</b></span>
+      <button id="soundbtn" type="button" style="margin-left:auto" aria-pressed="false">🔇 소리</button>
+    </div>
+
+    <div class="modes" id="mode-row"></div>
+    <div class="timer-track"><div class="timer-fill" id="timerfill"></div></div>
+    <p id="banner"></p>
+    <p id="qtext"></p>
+
+    <svg id="board" viewBox="0 0 560 560" role="img" aria-labelledby="boardtitle boarddesc">
+      <title id="boardtitle">해도 위의 벡터 항해</title>
+      <desc id="boarddesc">바다 해도 위 원점에 범선이 있고, 파란 화살표 a(바람)와 주황 화살표 b(조류)가 그려져 있다. 좌표 숫자는 없으며 화살표를 눈으로 읽어 도착할 격자점을 누르거나 값을 입력한다.</desc>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+        <clipPath id="seaclip"><rect x="20" y="20" width="520" height="520" rx="12"/></clipPath>
+      </defs>
+
+      <rect x="20" y="20" width="520" height="520" rx="12" fill="var(--sea)" stroke="var(--line)"/>
+      <g clip-path="url(#seaclip)" opacity=".55" id="wavelayer"></g>
+      <g id="gridlines"></g>
+
+      <g id="compass" transform="translate(492,72)" opacity=".75">
+        <circle r="24" fill="none" stroke="var(--axis)" stroke-width="1"/>
+        <path d="M0 -20 L4.5 0 L0 20 L-4.5 0 Z" fill="#0C447C"/>
+        <path d="M-20 0 L0 -4.5 L20 0 L0 4.5 Z" fill="var(--axis)" opacity=".5"/>
+        <text x="0" y="-27" text-anchor="middle" font-size="11" fill="var(--muted)">N</text>
+      </g>
+
+      <circle id="portmark" cx="280" cy="280" r="15" fill="none" stroke="#8A6A3B" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>
+
+      <line id="vecA" x1="280" y1="280" x2="280" y2="280" stroke="var(--wind)" stroke-width="3" marker-end="url(#arrow)"/>
+      <line id="vecB" x1="280" y1="280" x2="280" y2="280" stroke="var(--tide)" stroke-width="3" marker-end="url(#arrow)"/>
+      <line id="vecCorrect" x1="280" y1="280" x2="280" y2="280" stroke="var(--success)" stroke-width="3" marker-end="url(#arrow)" opacity="0"/>
+      <line id="vecUser" x1="280" y1="280" x2="280" y2="280" stroke="var(--danger)" stroke-width="2.2" stroke-dasharray="5 4" marker-end="url(#arrow)" opacity="0"/>
+      <g id="veclabelsvg"></g>
+      <g id="fxlayer"></g>
+
+      <g id="islandIcon" opacity="0" transform="translate(280,280)">
+        <ellipse cx="0" cy="10" rx="19" ry="6.5" fill="#E3C88F" stroke="#C9A868" stroke-width=".8"/>
+        <path d="M0 10 L-1 -3" stroke="#6B4A22" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M-1 -3 C -11 -9 -15 -1 -16 2 C -10 -4 -5 -5 -1 -3 Z" fill="#2F7D4F"/>
+        <path d="M-1 -3 C 9 -10 14 -3 15 1 C 9 -5 3 -5 -1 -3 Z" fill="#3A8F5C"/>
+        <path d="M-1 -3 C -5 -13 2 -15 7 -13 C 1 -13 -2 -9 -1 -3 Z" fill="#2F7D4F"/>
+        <rect x="5" y="4" width="10" height="7" rx="1.5" fill="#A9762F" stroke="#7A5320" stroke-width=".8"/>
+        <path d="M5 7.5 H15" stroke="#7A5320" stroke-width=".8"/>
+      </g>
+
+      <g id="ship" transform="translate(280,280)">
+        <g id="shipBody">
+          <path d="M-17 7 L17 7 L12 16 L-12 16 Z" fill="#8A5A2B" stroke="#5C3A18" stroke-width="1.1" stroke-linejoin="round"/>
+          <path d="M-17 7 L17 7" stroke="#F2E7D5" stroke-width="1.6"/>
+          <line x1="0" y1="-20" x2="0" y2="7" stroke="#5C3A18" stroke-width="2"/>
+          <path d="M1.8 -17 L14 4 L1.8 4 Z" fill="#FBF5EA" stroke="#C6B295" stroke-width=".9" stroke-linejoin="round"/>
+          <path d="M-1.8 -17 L-11 4 L-1.8 4 Z" fill="#F2E7D5" stroke="#C6B295" stroke-width=".9" stroke-linejoin="round"/>
+          <path d="M0 -20 L10 -16 L0 -12 Z" fill="#A32D2D"/>
+        </g>
+      </g>
+
+      <g id="hitpoints"></g>
+    </svg>
+
+    <div class="numrow" id="numrow">
+      <input type="number" id="numin" inputmode="decimal" step="0.01" placeholder="값 입력" aria-label="계산한 값">
+      <button id="submitbtn" type="button" class="big-btn">기록</button>
+      <span id="numerr" style="font-size:13px;color:var(--danger)"></span>
+    </div>
+
+    <p id="feedback" aria-live="polite"></p>
+    <button id="nextbtn" type="button" class="big-btn" style="display:none;margin-top:8px;width:100%">다음 항로 ↗</button>
+
+    <div id="gameover">
+      <h2>항해 종료</h2>
+      <p id="ranktext"></p>
+      <p id="gostats"></p>
+      <button id="restartbtn" type="button" class="big-btn" style="width:100%">다시 출항 ↗</button>
+    </div>
+  </div>
+
+  <details>
+    <summary>규칙 보기</summary>
+    <p>· 파란 화살표 <b>a</b>는 바람, 주황 화살표 <b>b</b>는 조류입니다. 좌표 숫자는 적혀 있지 않으니 눈금을 세어 성분을 읽으세요.</p>
+    <p>· 덧셈·뺄셈·스칼라배 문제는 배가 도착할 <b>격자점을 손가락으로 누르고</b>, 크기·내적 문제는 값을 입력합니다.</p>
+    <p>· 선체는 3칸. 틀리거나 시간이 다하면 1칸 줄고, 0이 되면 항해가 끝납니다.</p>
+    <p>· 빠르게 맞힐수록, 연속으로 맞힐수록 보물이 늘어납니다(3연속 ×1.5, 5연속 ×2, 8연속 ×3). 5문제마다 폭풍 해역은 보물 3배.</p>
+    <p>· 4문제를 성공할 때마다 해역이 올라가며 새 연산이 해금됩니다: 덧셈·뺄셈 → 스칼라배 → 크기 → 내적.</p>
+  </details>
+
+  <footer>수학 · 벡터의 연산 연습용 · 인터넷 연결 없이도 실행됩니다</footer>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+(function(){
+  "use strict";
+  var NS='http://www.w3.org/2000/svg';
+  var gridMax=5, scale=48, ox=280, oy=280;
+  var svg=document.getElementById('board');
+  var gl=document.getElementById('gridlines');
+  var hit=document.getElementById('hitpoints');
+  var shipEl=document.getElementById('ship');
+  var islandEl=document.getElementById('islandIcon');
+  function toPx(x,y){ return [ox+x*scale, oy-y*scale]; }
+  var TAP = window.PointerEvent ? 'pointerup' : 'click';
+
+  /* 파도 */
+  var wl=document.getElementById('wavelayer');
+  for(var r=0;r<10;r++){
+    var wg=document.createElementNS(NS,'g'); wg.setAttribute('class','waves');
+    wg.style.animationDelay=(-r*0.7)+'s';
+    var d='', yy=36+r*54;
+    for(var c=0;c<16;c++){ d+='M'+(0+c*40)+' '+yy+' q 10 -6 20 0 '; }
+    var wp=document.createElementNS(NS,'path');
+    wp.setAttribute('d',d); wp.setAttribute('fill','none');
+    wp.setAttribute('stroke','#9EC4DA'); wp.setAttribute('stroke-width','1.3'); wp.setAttribute('stroke-linecap','round');
+    wg.appendChild(wp); wl.appendChild(wg);
+  }
+  /* 격자 */
+  for(var i=-gridMax;i<=gridMax;i++){
+    var v=document.createElementNS(NS,'line');
+    v.setAttribute('x1',ox+i*scale); v.setAttribute('y1',oy-gridMax*scale);
+    v.setAttribute('x2',ox+i*scale); v.setAttribute('y2',oy+gridMax*scale);
+    v.setAttribute('stroke', i===0?'var(--axis)':'var(--grid)');
+    v.setAttribute('stroke-width', i===0?'1.4':'0.7'); gl.appendChild(v);
+    var h=document.createElementNS(NS,'line');
+    h.setAttribute('x1',ox-gridMax*scale); h.setAttribute('y1',oy-i*scale);
+    h.setAttribute('x2',ox+gridMax*scale); h.setAttribute('y2',oy-i*scale);
+    h.setAttribute('stroke', i===0?'var(--axis)':'var(--grid)');
+    h.setAttribute('stroke-width', i===0?'1.4':'0.7'); gl.appendChild(h);
+  }
+  /* 터치 영역: 손가락에 맞춰 넉넉하게 */
+  for(var gx=-gridMax; gx<=gridMax; gx++){
+    for(var gy=-gridMax; gy<=gridMax; gy++){
+      (function(gx,gy){
+        var p=toPx(gx,gy);
+        var c=document.createElementNS(NS,'circle');
+        c.setAttribute('cx',p[0]); c.setAttribute('cy',p[1]); c.setAttribute('r','22');
+        c.setAttribute('fill','transparent'); c.style.cursor='pointer';
+        c.addEventListener(TAP,function(e){ e.preventDefault(); unlockAudio(); handlePointClick(gx,gy); });
+        hit.appendChild(c);
+      })(gx,gy);
+    }
+  }
+
+  var modes=[
+    {id:'voyage',label:'항해 모드'},{id:'add',label:'a+b'},{id:'sub',label:'a−b'},
+    {id:'scalar',label:'ka'},{id:'mag',label:'|a|'},{id:'dot',label:'a·b'}
+  ];
+  var modeRow=document.getElementById('mode-row');
+  modes.forEach(function(m){
+    var b=document.createElement('button');
+    b.type='button'; b.textContent=m.label; b.dataset.mode=m.id;
+    b.addEventListener('click',function(){ unlockAudio(); setMode(m.id); });
+    modeRow.appendChild(b);
+  });
+
+  var state={mode:'voyage',op:'add',a:{x:0,y:0},b:{x:0,y:0},k:1,answered:false,answerPt:null,
+             answerNum:null,gameOver:false,qStart:0,timeoutId:null,warnId:null,duration:12000,
+             qCount:0,boss:false,bonusTime:0,sound:false};
+  var score={points:0,correct:0,streak:0,best:0,lives:3};
+  var bestPoints=0;
+
+  /* iOS는 사용자 조작 후에만 소리가 납니다 */
+  var actx=null;
+  function unlockAudio(){
+    if(!state.sound) return;
+    try{
+      if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==='suspended') actx.resume();
+    }catch(e){}
+  }
+  function beep(freqs,dur,type){
+    if(!state.sound||!actx) return;
+    try{
+      freqs.forEach(function(f,idx){
+        var o=actx.createOscillator(), g=actx.createGain();
+        o.type=type||'sine'; o.frequency.value=f;
+        var t=actx.currentTime+idx*0.09;
+        g.gain.setValueAtTime(0.0001,t);
+        g.gain.exponentialRampToValueAtTime(0.12,t+0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+        o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+dur+0.02);
+      });
+    }catch(e){}
+  }
+  var soundBtn=document.getElementById('soundbtn');
+  soundBtn.addEventListener('click',function(){
+    state.sound=!state.sound;
+    soundBtn.textContent=(state.sound?'🔊':'🔇')+' 소리';
+    soundBtn.setAttribute('aria-pressed',String(state.sound));
+    if(state.sound){ unlockAudio(); beep([523],0.1,'sine'); }
+  });
+
+  function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+  function randVec(lo,hi){ var x,y; do{ x=randInt(lo,hi); y=randInt(lo,hi);}while(x===0&&y===0); return {x:x,y:y}; }
+  function inRange(v){ return v.x>=-gridMax&&v.x<=gridMax&&v.y>=-gridMax&&v.y<=gridMax; }
+  function level(){ return Math.min(Math.floor(score.correct/4)+1,6); }
+  function compRange(){ return Math.min(2+Math.floor(score.correct/4),4); }
+  function multiplier(){ return score.streak>=8?3:(score.streak>=5?2:(score.streak>=3?1.5:1)); }
+
+  function setLine(id,vx,vy){
+    var p=toPx(vx,vy), el=document.getElementById(id);
+    el.setAttribute('x1',ox); el.setAttribute('y1',oy);
+    el.setAttribute('x2',p[0]); el.setAttribute('y2',p[1]);
+  }
+  function moveShip(vx,vy){
+    var p=toPx(vx,vy);
+    shipEl.setAttribute('transform','translate('+p[0]+','+p[1]+') scale('+(vx<0?-1:1)+',1)');
+  }
+  function showIsland(vx,vy){
+    var p=toPx(vx,vy);
+    islandEl.setAttribute('transform','translate('+p[0]+','+p[1]+')');
+    islandEl.setAttribute('opacity','1');
+    islandEl.classList.remove('islandpop');
+    void islandEl.getBoundingClientRect();
+    islandEl.classList.add('islandpop');
+  }
+  function setVecLabels(showB){
+    var g=document.getElementById('veclabelsvg'); g.innerHTML='';
+    function lab(vec,txt,color){
+      var p=toPx(vec.x,vec.y);
+      var t=document.createElementNS(NS,'text');
+      t.setAttribute('x',p[0]+10); t.setAttribute('y',p[1]-10);
+      t.setAttribute('font-size','18'); t.setAttribute('font-weight','600'); t.setAttribute('fill',color);
+      t.textContent=txt; g.appendChild(t);
+    }
+    lab(state.a,'a','#0C447C');
+    if(showB) lab(state.b,'b','#712B13');
+  }
+  function updateHud(){
+    document.getElementById('lvlval').textContent=level();
+    document.getElementById('pointsval').textContent=score.points;
+    document.getElementById('streakval').textContent=score.streak;
+    document.getElementById('bestval').textContent=bestPoints;
+    var m=multiplier();
+    document.getElementById('multival').textContent = m>1?'×'+m:'';
+    var hs='';
+    for(var i=0;i<3;i++){ hs += i<score.lives ? '♥' : '<span class="off">♥</span>'; }
+    document.getElementById('hearts').innerHTML=hs;
+  }
+  function popPoints(n){
+    var w=document.getElementById('popupwrap');
+    var el=document.createElement('span'); el.className='pop'; el.textContent='+'+n;
+    el.style.cssText='font-size:12px;font-weight:600;color:var(--success);white-space:nowrap';
+    w.appendChild(el); setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },820);
+  }
+  function toast(msg){
+    var t=document.getElementById('toast');
+    t.textContent=msg; t.classList.remove('toastshow'); void t.offsetWidth; t.classList.add('toastshow');
+  }
+  function pulseAt(gx,gy){
+    var p=toPx(gx,gy);
+    var c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',p[0]); c.setAttribute('cy',p[1]); c.setAttribute('r','16');
+    c.setAttribute('fill','none'); c.setAttribute('stroke','var(--success)'); c.setAttribute('stroke-width','2.2');
+    c.setAttribute('class','pulsering');
+    c.style.transformBox='fill-box'; c.style.transformOrigin='center';
+    document.getElementById('fxlayer').appendChild(c);
+    setTimeout(function(){ if(c.parentNode) c.parentNode.removeChild(c); },560);
+  }
+  function startTimer(ms){
+    state.duration=ms;
+    var fill=document.getElementById('timerfill');
+    fill.style.transition='none'; fill.style.width='100%'; fill.style.background='var(--gold)';
+    void fill.offsetWidth;
+    state.qStart=Date.now();
+    requestAnimationFrame(function(){
+      fill.style.transition='width '+ms+'ms linear, background-color .4s linear';
+      fill.style.width='0%';
+    });
+    if(state.warnId) clearTimeout(state.warnId);
+    state.warnId=setTimeout(function(){ if(!state.answered&&!state.gameOver) fill.style.background='var(--danger)'; }, ms*0.65);
+    if(state.timeoutId) clearTimeout(state.timeoutId);
+    state.timeoutId=setTimeout(handleTimeout, ms);
+  }
+  function stopTimer(){
+    var fill=document.getElementById('timerfill');
+    var elapsed=Date.now()-state.qStart;
+    fill.style.transition='none';
+    fill.style.width=Math.max(0,100-100*elapsed/state.duration)+'%';
+    if(state.timeoutId){ clearTimeout(state.timeoutId); state.timeoutId=null; }
+    if(state.warnId){ clearTimeout(state.warnId); state.warnId=null; }
+    return Math.max(0,1-elapsed/state.duration);
+  }
+  function setMode(m){
+    state.mode=m;
+    Array.prototype.forEach.call(modeRow.children,function(btn){
+      btn.setAttribute('aria-pressed', String(btn.dataset.mode===m));
+    });
+    resetRun(); newQuestion();
+  }
+  function pickOp(){
+    if(state.mode!=='voyage') return state.mode;
+    var pool=['add','sub'];
+    if(level()>=2) pool.push('scalar');
+    if(level()>=3) pool.push('mag');
+    if(level()>=4) pool.push('dot');
+    return pool[randInt(0,pool.length-1)];
+  }
+  function newQuestion(){
+    document.getElementById('feedback').textContent='';
+    document.getElementById('nextbtn').style.display='none';
+    document.getElementById('numerr').textContent='';
+    document.getElementById('numin').value='';
+    document.getElementById('vecCorrect').setAttribute('opacity','0');
+    document.getElementById('vecUser').setAttribute('opacity','0');
+    islandEl.setAttribute('opacity','0');
+    moveShip(0,0);
+    state.answered=false; state.qCount++;
+    state.boss = state.mode==='voyage' && state.qCount%5===0;
+
+    var banner=document.getElementById('banner');
+    if(state.boss){ banner.style.display='block'; banner.style.color='var(--gold)'; banner.textContent='🌊 폭풍 해역 — 시간 단축, 보물 3배'; }
+    else if(state.mode!=='voyage'){ banner.style.display='block'; banner.style.color='var(--muted)'; banner.textContent='연습 모드 — 한 연산만 반복합니다.'; }
+    else { banner.style.display='none'; }
+
+    var op=pickOp(); state.op=op; var cr=compRange();
+    var qtext=document.getElementById('qtext');
+    var numrow=document.getElementById('numrow'); numrow.style.display='none';
+    document.getElementById('vecB').setAttribute('opacity','1');
+
+    if(op==='add'||op==='sub'){
+      var tries=0,a,b,ans;
+      do{ a=randVec(-cr,cr); b=randVec(-cr,cr); ans=op==='add'?{x:a.x+b.x,y:a.y+b.y}:{x:a.x-b.x,y:a.y-b.y}; tries++; }
+      while((!inRange(ans)||(ans.x===0&&ans.y===0))&&tries<60);
+      state.a=a; state.b=b; state.answerPt=ans;
+      setLine('vecA',a.x,a.y); setLine('vecB',b.x,b.y); setVecLabels(true);
+      qtext.textContent = op==='add' ? '바람 a와 조류 b를 합친 a + b 지점에 보물섬이 있습니다. 그 격자점을 누르세요.'
+                                     : '해류를 거슬러 a − b 지점으로 배를 보내세요.';
+    } else if(op==='scalar'){
+      var t2=0,a2,k,ans2, kOpts=level()>=3?[-4,-3,-2,2,3,4]:[-3,-2,2,3];
+      do{ a2=randVec(-3,3); k=kOpts[randInt(0,kOpts.length-1)]; ans2={x:a2.x*k,y:a2.y*k}; t2++; }
+      while(!inRange(ans2)&&t2<60);
+      state.a=a2; state.k=k; state.answerPt=ans2;
+      setLine('vecA',a2.x,a2.y); document.getElementById('vecB').setAttribute('opacity','0'); setVecLabels(false);
+      qtext.textContent='돛을 '+k+'배로 펼쳤습니다. '+k+'·a 지점을 누르세요.';
+    } else if(op==='mag'){
+      var a3=randVec(-gridMax,gridMax);
+      state.a=a3; state.answerPt=null; state.answerNum=Math.sqrt(a3.x*a3.x+a3.y*a3.y);
+      setLine('vecA',a3.x,a3.y); document.getElementById('vecB').setAttribute('opacity','0'); setVecLabels(false);
+      qtext.textContent='항로 a의 실제 거리 |a|를 소수 둘째 자리까지 입력하세요.';
+      numrow.style.display='flex'; document.getElementById('numin').step='0.01';
+    } else {
+      var a4=randVec(-cr,cr), b4=randVec(-cr,cr);
+      state.a=a4; state.b=b4; state.answerPt=null; state.answerNum=a4.x*b4.x+a4.y*b4.y;
+      setLine('vecA',a4.x,a4.y); setLine('vecB',b4.x,b4.y); setVecLabels(true);
+      qtext.textContent='바람과 조류가 얼마나 같은 편인지, 내적 a · b를 계산하세요.';
+      numrow.style.display='flex'; document.getElementById('numin').step='1';
+    }
+    var base=Math.max(8000,14000-(level()-1)*1000);
+    if(state.boss) base-=3000;
+    base+=state.bonusTime; state.bonusTime=0;
+    startTimer(base);
+  }
+  function endGame(){
+    state.gameOver=true; stopTimer();
+    if(score.points>bestPoints) bestPoints=score.points;
+    document.getElementById('numrow').style.display='none';
+    document.getElementById('nextbtn').style.display='none';
+    document.getElementById('banner').style.display='none';
+    var r=score.points>=450?'S 등급 · 전설의 선장':(score.points>=280?'A 등급 · 노련한 항해사':(score.points>=150?'B 등급 · 정식 선원':'C 등급 · 견습 선원'));
+    document.getElementById('ranktext').textContent=r;
+    document.getElementById('gostats').textContent='보물 '+score.points+' · 도달 해역 '+level()+' · 상륙 '+score.correct+'회 · 최고 연속 '+score.best;
+    document.getElementById('gameover').style.display='block';
+    updateHud();
+    beep([330,247,196],0.28,'triangle');
+  }
+  function grade(correct,gx,gy,timedOut){
+    var frac=stopTimer();
+    var fb=document.getElementById('feedback');
+    if(correct){
+      score.correct++; score.streak++; score.best=Math.max(score.best,score.streak);
+      var p=Math.round((10+15*frac)*multiplier()*(state.boss?3:1));
+      score.points+=p; popPoints(p); pulseAt(gx,gy);
+      if(state.answerPt){ showIsland(gx,gy); moveShip(gx,gy); }
+      beep([523,784],0.16,'sine');
+      fb.style.color='var(--success)';
+      fb.textContent=(state.boss?'폭풍 돌파, 상륙 성공! +':'보물섬 상륙! +')+p;
+      if(score.streak===3){ state.bonusTime=3000; toast('연속 3회 · 순풍! 시간 +3초'); }
+      if(score.streak===5){
+        if(score.lives<3){ score.lives++; toast('연속 5회 · 선체 수리 +1'); }
+        else { state.bonusTime=4000; toast('연속 5회 · 순풍! 시간 +4초'); }
+      }
+    } else {
+      score.streak=0; score.lives=Math.max(0,score.lives-1);
+      beep([196,147],0.22,'sawtooth');
+      fb.style.color='var(--danger)';
+      var ansTxt = state.answerPt ? '보물섬은 초록색 화살표 끝에 있었습니다.'
+                                  : '정답은 '+(state.op==='mag'?state.answerNum.toFixed(2):state.answerNum)+'입니다.';
+      fb.textContent=(timedOut?'표류 — 시간 초과. ':'암초에 좌초. ')+ansTxt;
+      var hs=document.getElementById('hearts');
+      hs.classList.remove('heartlost'); void hs.offsetWidth; hs.classList.add('heartlost');
+      svg.classList.add('shake'); setTimeout(function(){ svg.classList.remove('shake'); },340);
+      if(state.answerPt){ showIsland(state.answerPt.x,state.answerPt.y); moveShip(state.answerPt.x,state.answerPt.y); }
+    }
+    updateHud(); state.answered=true;
+    if(score.lives<=0) endGame(); else document.getElementById('nextbtn').style.display='block';
+  }
+  function revealCorrect(){
+    if(state.answerPt){
+      setLine('vecCorrect',state.answerPt.x,state.answerPt.y);
+      document.getElementById('vecCorrect').setAttribute('opacity','1');
+    }
+  }
+  function handleTimeout(){
+    if(state.answered||state.gameOver) return;
+    revealCorrect(); grade(false,0,0,true);
+  }
+  function handlePointClick(gx,gy){
+    if(state.answered||state.gameOver||!state.answerPt) return;
+    revealCorrect();
+    if(gx===state.answerPt.x&&gy===state.answerPt.y){ grade(true,gx,gy,false); }
+    else{
+      setLine('vecUser',gx,gy); document.getElementById('vecUser').setAttribute('opacity','1');
+      grade(false,gx,gy,false);
+    }
+  }
+  function submitNum(){
+    if(state.answered||state.gameOver||state.answerPt) return;
+    var raw=document.getElementById('numin').value, err=document.getElementById('numerr');
+    if(raw===''||isNaN(parseFloat(raw))){ err.textContent='값을 입력하세요.'; return; }
+    err.textContent='';
+    document.getElementById('numin').blur();
+    var tol=state.op==='mag'?0.05:0.001;
+    grade(Math.abs(parseFloat(raw)-state.answerNum)<=tol, state.a.x, state.a.y, false);
+  }
+  document.getElementById('submitbtn').addEventListener('click',function(){ unlockAudio(); submitNum(); });
+  document.getElementById('numin').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); submitNum(); } });
+  document.getElementById('nextbtn').addEventListener('click',function(){ unlockAudio(); newQuestion(); });
+  document.getElementById('restartbtn').addEventListener('click',function(){ unlockAudio(); resetRun(); newQuestion(); });
+  function resetRun(){
+    if(score.points>bestPoints) bestPoints=score.points;
+    score={points:0,correct:0,streak:0,best:0,lives:3};
+    state.gameOver=false; state.qCount=0; state.bonusTime=0;
+    document.getElementById('gameover').style.display='none';
+    updateHud();
+  }
+  /* 백그라운드로 갔다 오면 타이머로 불이익을 받지 않도록 일시정지 */
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden && !state.answered && !state.gameOver){
+      stopTimer();
+      state.answered=true;
+      var fb=document.getElementById('feedback');
+      fb.style.color='var(--muted)'; fb.textContent='정박 중 — 화면을 벗어나 항해를 멈췄습니다.';
+      document.getElementById('nextbtn').style.display='block';
+      document.getElementById('nextbtn').textContent='항해 재개 ↗';
+    }
+  });
+  resetRun(); setMode('voyage');
+})();
+</script>
+</body>
+</html>
